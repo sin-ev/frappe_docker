@@ -1,63 +1,79 @@
-version: "3.7"
 services:
-  mariadb:
-    image: docker.io/mariadb:10.6
-    platform: linux/amd64
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --skip-character-set-client-handshake
-      - --skip-innodb-read-only-compressed # Temporary fix for MariaDB 10.6
-    environment:
-      MYSQL_ROOT_PASSWORD: 123
-    volumes:
-      - mariadb-data:/var/lib/mysql
+  # mariadb:
+  #   image: docker.io/mariadb:10.6
+  #   platform: linux/amd64
+  #   command:
+  #     - --character-set-server=utf8mb4
+  #     - --collation-server=utf8mb4_unicode_ci
+  #     - --skip-character-set-client-handshake
+  #     - --skip-innodb-read-only-compressed # Temporary fix for MariaDB 10.6
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: 123
+  #   volumes:
+  #     - mariadb-data:/var/lib/mysql
 
   # Enable PostgreSQL only if you use it, see development/README.md for more information.
-  # postgresql:
-  #   image: postgres:11.8
-  #   environment:
-  #     POSTGRES_PASSWORD: 123
-  #   volumes:
-  #     - postgresql-data:/var/lib/postgresql/data
+  postgresql:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_PASSWORD: 123
+    volumes:
+      - pg-data:/var/lib/postgresql/data
 
   # Enable Mailpit if you need to test outgoing mail services
   # See https://mailpit.axllent.org/
-  #  mailpit:
-  #    image: axllent/mailpit
-  #    volumes:
-  #      - mailpit-data:/data
-  #    ports:
-  #      - 8025:8025
-  #      - 1025:1025
-  #    environment:
-  #      MP_MAX_MESSAGES: 5000
-  #      MP_DATA_FILE: /data/mailpit.db
-  #      MP_SMTP_AUTH_ACCEPT_ANY: 1
-  #      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+  mailpit:
+    image: axllent/mailpit
+    volumes:
+      - mailpit-data:/data
+    ports:
+      - 8025:8025
+      - 1025:1025
+      - 1110:1110
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+      MP_POP_ENABLED: 1
+      MP_POP_AUTH_ANY_LOGIN: 1
 
   redis-cache:
     image: docker.io/redis:alpine
-    platform: linux/amd64
+    # platform: linux/amd64
 
   redis-queue:
     image: docker.io/redis:alpine
-    platform: linux/amd64
+    # platform: linux/amd64
 
   frappe:
     image: docker.io/frappe/bench:latest
-    platform: linux/amd64
+    # platform: linux/amd64
     command: sleep infinity
     environment:
       - SHELL=/bin/bash
     volumes:
       - ..:/workspace:cached
+      - ../.cursor:/home/frappe/.cursor
       # Enable if you require git cloning
-      # - ${HOME}/.ssh:/home/frappe/.ssh
+      - ${HOME}/.ssh:/home/frappe/.ssh
     working_dir: /workspace/development
     ports:
       - 8000-8005:8000-8005
       - 9000-9005:9000-9005
+
+  # MCP Server for Frappe integration
+  # Uncomment and configure when ready to use
+  # mcp-server:
+  #   build:
+  #     context: ../images/mcp
+  #     dockerfile: Containerfile
+  #   environment:
+  #     - FRAPPE_URL=https://your-frappe-url
+  #     - FRAPPE_API_KEY=your-key
+  #     - FRAPPE_API_SECRET=your-secret
+  #   ports:
+  #     - "3030:3030"
   # enable the below service if you need Cypress UI Tests to be executed
   # Before enabling ensure install_x11_deps.sh has been executed and display variable is exported.
   # Run install_x11_deps.sh again if DISPLAY is not set
@@ -73,7 +89,7 @@ services:
   #     - SHELL=/bin/bash
   #     # get the IP address of the host machine and allow X11 to accept
   #     # incoming connections from that IP address
-  #     #   IP=$(ipconfig getifaddr en0) or mac or \
+  #     #   IP=$(ipconfig getifaddr en0) or \
   #     #   IP=$($(hostname -I | awk '{print $1}') )  for Ubuntu
   #     #   /usr/X11/bin/xhost + $IP
   #     # then pass the environment variable DISPLAY to show Cypress GUI on the host system
@@ -86,6 +102,6 @@ services:
   #     - ..:/workspace:z,cached
   #   network_mode: "host"
 volumes:
-  mariadb-data:
-  #postgresql-data:
-  #mailpit-data:
+  # mariadb-data:
+  pg-data:
+  mailpit-data:

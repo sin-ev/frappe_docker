@@ -1,0 +1,42 @@
+# Production stage with all necessary dependencies
+FROM node:20.9.0-bullseye-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    dumb-init \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Set environment variables
+ENV NODE_ENV=production \
+    USER=appuser
+
+# Create app directory and set permissions
+WORKDIR /app
+
+# Copy application files
+COPY --chown=appuser:appuser . .
+
+# Change ownership of the app directory
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 3030
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3030/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" || exit 1
+
+# Use dumb-init as entrypoint for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the MCP server
+CMD ["npx", "frappe-mcp-server"]
